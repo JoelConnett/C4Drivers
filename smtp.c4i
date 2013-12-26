@@ -1,0 +1,444 @@
+<devicedata>
+  <copyright>Copyright 2013 Control4 Corporation.  All rights reserved.</copyright>
+  <creator>Joel Connett</creator>
+  <manufacturer>Joel Connett</manufacturer>
+  <name>SMTP</name>
+  <model>SMTP</model>
+  <created>05/06/2013 12:00 PM</created>
+  <modified>05/06/2013 12:00 PM</modified>
+  <version>9</version>
+  <small>devices_sm\c4.gif</small>
+  <large>devices_lg\c4.gif</large>
+  <control>lua_gen</control>
+  <controlmethod>other</controlmethod>
+  <driver>DriverWorks</driver>
+  <combo>True</combo>
+  <OnlineCategory>others</OnlineCategory>
+  <proxies qty="1">
+    <proxy>smtp</proxy>
+  </proxies>
+  <config>
+    <documentation></documentation>
+    <script>
+      <![CDATA[
+
+CMDS = {}
+
+function OnDriverInit()  
+  gAsyncCallbacks = {}
+  gSendFilename = "sendmail.lua"
+  gSendQueue = {}
+  gSendTimer = nil
+  gAttachmentFileIndex = 0
+print("Test")
+  if C4:FileExists(gSendFilename) then
+    C4:FileDelete(gSendFilename)
+  end
+
+  -- Write out lua file so that we can do more stuff :)
+  local file = C4:FileOpen(gSendFilename)
+  C4:FileWriteString(file, gSendMailCode)
+  C4:FileClose(file)
+end
+
+function OnDriverDestroyed()
+end
+
+
+function ExecuteCommand(cmd, tParams)
+  if cmd ~= "LUA_ACTION" then
+    if CMDS[cmd] then
+      CMDS[cmd](tParams)
+    else 
+      print("SMTP Command Not Found: ", cmd)
+    end
+  end
+end
+
+function CMDS.SendMessage(tParams)
+  if tParams.Attachment and tParams.Attachment ~= "" then
+    getAttachment(tParams)
+  else
+    sendMessage(tParams)
+  end
+end
+
+function ReceivedAsync(ticketId, strData, responseCode, tHeaders)
+  print(ReceivedAsynch)
+  gAsyncCallbacks[ticketId](ticketId,strData,responseCode,tHeaders)
+  gAsyncCallbacks[ticketId] = nil
+end
+
+function os.capture(cmd, raw)
+  local f = assert(io.popen(cmd, 'r'))
+  local s = assert(f:read('*a'))
+  f:close()
+  if raw then return s end
+  s = string.gsub(s, '^%s+', '')
+  s = string.gsub(s, '%s+$', '')
+  s = string.gsub(s, '[\n\r]+', ' ')
+  return s
+end
+
+--[[
+Gets an attachment. Returns a promise to run when the attachement is received.
+--]]
+function getAttachment(tParams)
+  print("Getting attachment", tParams.Attachment)
+  local ticketId = C4:urlGet(tParams.Attachment)
+  print("ticketId", ticketId)
+
+  gAsyncCallbacks[ticketId] = function(ticketId, strData, responseCode, tHeaders)
+    print("Callback", ticketId, strData:len(), responseCode, tHeaders)
+    
+    local filename = "attachment" .. gAttachmentFileIndex
+    gAttachmentFileIndex = gAttachmentFileIndex + 1
+
+    if responseCode == 200 then
+      -- format headers
+      for i,v in pairs(tHeaders) do
+        tHeaders[i:lower()] = v
+      end
+      
+      print("Good response")
+     
+      pcall(C4:FileDelete(filename))
+      local file = C4:FileOpen(filename)
+      C4:FileWriteString(file, strData)
+      C4:FileClose(file, strData)
+      tParams.Attachment = string.format([[/control4/drivers/lua/sandbox/%s/%s]], C4:GetDeviceID(), filename)
+      if tHeaders["content-type"] then
+        tParams.AttachmentType = tHeaders["content-type"]
+      else
+        tParams.AttachmentType = "image/jpeg"
+      end
+    else
+      tParams.Attachment = ""
+    end
+
+    sendMessage(tParams)
+  end
+end
+
+function sendMessage(tParams)
+  local cmd 
+
+  if tParams.cmd then
+    cmd = tParams.cmd
+  else
+    cmd = string.format([[lua /control4/drivers/lua/sandbox/%s/%s %q %q %q %q %q %q %q %q %q %q %q %q]], 
+                  C4:GetDeviceID(),
+                  gSendFilename,
+                  Properties["Server"],
+                  Properties["Port"],
+                  Properties["SSL"],
+                  Properties["Username"],
+                  Properties["Password"],
+                  Properties["From"],
+                  Properties["Email"],
+                  tParams.To,
+                  tParams.Attachment or "",
+                  tParams.AttachmentType or "",
+                  tParams.Subject or "",
+                  tParams.Body or "")
+  end
+
+  if Properties["Debug Mode"] ~= "Off" then
+    print("Running:", cmd)
+  end
+  
+  local output = os.capture(cmd, true)
+  print(output)
+
+  if output:find("Mail send failed", 1, true) ~= nil then
+    print("Resending")
+    if tParams.cmd and tParams.times < 5 then
+      addToResendQueue(tParams)
+    else
+      local resend = 
+      {
+        times = 0,
+        cmd = cmd
+      }
+      addToResendQueue(resend)
+    end
+  elseif tParams.Attachment and tParams.Attachment ~= "" then
+    -- Delete the file because we are done with it.
+    pcall(C4:FileDelete(tParams.Attachment))
+  end
+end
+
+function addToResendQueue(tParams)
+  table.insert(gSendQueue, tParams)
+
+  if not gSendTimer then
+    gSendTimer = C4:AddTimer(30, "SECONDS")
+  end
+end
+
+function OnTimerExpired(timerId)
+  print("Timer expired", timerId)
+  if timerId == gSendTimer then
+    gSendTimer = nil
+    gOldQueue = gSendQueue
+    gSendQueue = {}
+    for i,v in ipairs(gOldQueue) do
+      v.times = v.times + 1
+      sendMessage(v)
+    end
+  end
+end
+
+gSendMailCode = [[
+local socket = require 'socket'
+local smtp = require 'socket.smtp'
+local ssl = require 'ssl'
+local https = require 'ssl.https'
+local ltn12 = require 'ltn12'
+
+local params = {...}
+local gServer = params[1]
+local gPort = params[2]
+local gSSL = params[3]
+local gUsername = params[4]
+local gPassword = params[5]
+local gFromName = params[6]
+local gFromEmail = params[7]
+local gToEmail = params[8]
+local gAttachment = params[9]
+local gAttachmentType = params[10]
+local gSubject = params[11]
+local gBody = params[12]
+
+function sslCreate()
+    local sock = socket.tcp()
+    return setmetatable({
+        connect = function(_, host, port)
+            sock:settimeout(5)
+            local r, e = sock:connect(host, port)
+            if not r then return r, e end
+
+            if gSSL == "Enabled" then
+              sock = ssl.wrap(sock, {mode='client', protocol='tlsv1'})
+              return sock:dohandshake()
+            else
+              return r, e
+            end
+        end
+    }, {
+        __index = function(t,n)
+            return function(_, ...)
+                return sock[n](sock, ...)
+            end
+        end
+    })
+end
+
+function sendMessage()
+    print("sending message")
+    local msg = 
+    {
+      headers = 
+      {
+          from = gFromName .. "<" .. gFromEmail .. ">",
+          to = '<'.. gToEmail .. '>',
+          subject = gSubject
+      },
+      body = 
+      {
+        [1] = 
+        {
+          body = mime.eol(0, gBody)
+        }
+      }
+    }
+
+    if gAttachment ~= "" then 
+      if gAttachmentType:find("multipart/x-mixed-replace", 1, true) ~= nil then
+        print("stripping multipart")
+        local file = io.open(gAttachment, "rb")
+        local tmpFilename = gAttachment .. "_stripped"
+        local tmpFile = io.open(tmpFilename, "wb")
+        
+        for v in file:lines() do
+          if v == "\r" then
+            break
+          end
+        end
+        
+        ltn12.pump.all(
+            ltn12.source.file(file),
+              ltn12.sink.file(tmpFile)
+            )
+       
+        gAttachmentOrig = gAttachment
+        gAttachment = tmpFilename
+        gAttachmentType = "image/jpeg"
+      end
+      
+      print("with attachment", gAttachment, gAttachmentType)
+      
+      local attachmentName = "attachment"
+      
+      if gAttachmentType == "image/jpeg" then
+        attachmentName = "image.jpeg"
+      elseif gAttachmentType == "image/png" then
+        attachementName = "image.png"
+      end
+          
+      msg.body[2] =
+      {
+        headers = 
+        {
+          ["content-type"] = gAttachmentType .. '; name="' .. attachmentName .. '"',
+          ["content-transfer-encoding"] = "BASE64"
+        },
+        body = ltn12.source.chain(
+          ltn12.source.file(io.open(gAttachment, "rb")),
+          ltn12.filter.chain(
+            mime.encode("base64"),
+            mime.wrap()
+          )
+        )
+      }
+    end
+
+
+    local ok, err = smtp.send {
+        from = '<' .. gFromEmail .. '>',
+        rcpt = '<' .. gToEmail .. '>',
+        source = smtp.message(msg),
+        user = gUsername,
+        password = gPassword,
+        server = gServer,
+        port = gPort,
+        create = sslCreate
+    }
+    if not ok then
+        print("Mail send failed", err) -- better error handling required
+    else
+        print("Message Sent")
+  cleanupAttachments()        
+    end
+end
+
+function cleanupAttachments()
+  if gAttachment and gAttachment ~= "" then 
+    os.remove(gAttachement)
+  end
+  
+  if gAttachmentOrig then
+    os.remove(gAttachementOrig)
+  end
+end
+
+-- Send the message
+sendMessage()
+
+]]
+      ]]>
+    </script>
+    <commands>
+      <command>
+        <name>SendMessage</name>
+        <description>Send email message to PARAM1 with subject: PARAM2 attachment: PARAM3 and body: PARAM4</description>
+        <params>
+          <param>
+            <name>To</name>
+            <type>STRING</type>
+          </param>
+          <param>
+            <name>Subject</name>
+            <type>STRING</type>
+          </param>
+          <param>
+            <name>Attachment</name>
+            <type>STRING</type>
+          </param>  
+          <param>
+            <name>Body</name>
+            <type>STRING</type>
+          </param>
+        </params>
+      </command>
+    </commands>
+    <actions>
+      <action>
+        <name>Display Globals</name>
+        <command>DisplayGlobals</command>
+      </action>
+    </actions>
+    <properties>
+      <property>
+        <name>Server</name>
+        <type>STRING</type>
+        <default/>
+      </property>
+      <property>
+        <name>Port</name>
+        <type>RANGED_INTEGER</type>
+        <minimum>1</minimum>
+        <maximum>10000</maximum>
+        <default>25</default>
+        <readonly>false</readonly>
+      </property>
+      <property>
+        <name>From</name>
+        <type>STRING</type>
+        <default/>
+      </property>
+       <property>
+        <name>Email</name>
+        <type>STRING</type>
+        <default/>
+      </property>
+       <property>
+        <name>Username</name>
+        <type>STRING</type>
+        <default/>
+      </property>
+       <property>
+        <name>Password</name>
+        <type>STRING</type>
+        <default/>
+        <password>true</password>
+      </property>
+      <property>
+        <name>SSL</name>
+        <type>LIST</type>
+        <items>
+          <item>Enabled</item>
+          <item>Disabled</item>
+        </items>
+        <default>Enabled</default>
+        <readonly>false</readonly>
+     </property>
+      <property>
+        <name>Debug Level</name>
+        <type>LIST</type>
+        <readonly>false</readonly>
+        <default>2 - Warning</default>
+        <items>
+          <item>0 - Alert</item>
+          <item>1 - Error</item>
+          <item>2 - Warning</item>
+          <item>3 - Info</item>
+          <item>4 - Trace</item>
+          <item>5 - Debug</item>
+        </items>
+      </property>
+      <property>
+        <name>Debug Mode</name>
+        <type>LIST</type>
+        <readonly>false</readonly>
+        <default>Off</default>
+        <items>
+          <item>Off</item>
+          <item>Print</item>
+          <item>Log</item>
+          <item>Print and Log</item>
+        </items>
+      </property>
+    </properties>
+  </config>
+</devicedata>

@@ -1,0 +1,179 @@
+<devicedata>
+	<copyright>Copyright 2012 Joel Connett.  All rights reserved.</copyright>
+	<manufacturer>Joel Connett</manufacturer>
+	<creator>Joel Connett</creator>
+	
+	<created>12/5/2013 12:09:54 AM</created>
+	<modified>3/23/2012 12:09:54 AM</modified>
+	
+	<version>4</version>
+	<name>Data Logger</name>
+	<model>Data Logger</model>
+	
+	<small>devices_sm/c4.gif</small>
+	<large>devices_lg/c4.gif</large>
+	<control>lua_gen</control>
+	<driver>DriverWorks</driver>
+	<proxy>DataLogger</proxy>
+	<combo/>
+	<config>
+		<documentation/>
+		<actions>
+	       <action>
+	        <name>Reset Logging</name>
+	        <command>startLogging</command>
+	      </action>
+	      <action>
+	        <name>Start Logging</name>
+	        <command>setupLogTimer</command>
+	      </action>
+	      <action>
+	        <name>Stop Logging</name>
+	        <command>destroyLogTimer</command>
+	      </action>
+	    </actions>
+		<properties>
+			<property>
+				<name>Interval</name>
+				<type>RANGED_INTEGER</type>
+				<default>5</default>
+				<minimum>1</minimum>
+                <maximum>86400</maximum>
+				<readonly>false</readonly>
+			</property>		
+			<property>
+				<name>File</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>false</readonly>
+			</property>	
+			<property>
+				<name>Name 1</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>false</readonly>
+			</property>
+			<property>
+				<name>Name 2</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>false</readonly>
+			</property>
+			<property>
+				<name>Name 3</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>false</readonly>
+			</property>
+			<property>
+				<name>Name 4</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>false</readonly>
+			</property>
+			<property>
+				<name>Name 5</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>false</readonly>
+			</property>
+			<property>
+				<name>Debug</name>
+				<type>LIST</type>
+				<items>
+				  <item>Off</item>
+				  <item>Print</item>
+				  <item>Log</item>
+				  <item>Print and Log</item>
+				</items>
+				<default>Off</default>
+				<readonly>false</readonly>
+			</property>
+		</properties>
+		<actions/>
+		<commands/>
+		<script>
+<![CDATA[
+
+
+C4:AddVariable("Var1", 0, "NUMBER", false, false);
+C4:AddVariable("Var2", 0, "NUMBER", false, false);
+C4:AddVariable("Var3", 0, "NUMBER", false, false);
+C4:AddVariable("Var4", 0, "NUMBER", false, false);
+C4:AddVariable("Var5", 0, "NUMBER", false, false);
+
+function log(message)
+	local val = Properties["Debug"] 
+	if  val == "Print" then
+		print(message)
+	elseif val == "Log" then
+		C4:DebugLog(message)
+	elseif val == "Log and Print" then
+		print(message)
+		C4:DebugLog(rmessage)
+	end
+end
+
+function OnPropertyChanged(strProperty)
+	startLogging();
+end
+
+function startLogging()
+	destroyLogTimer()
+
+	if Properties["File"] == "" then
+		return
+	end
+
+	local file = io.open(Properties["File"], "w+")
+	file:write("Time,", Properties["Name 1"] or "", ",", Properties["Name 2"] or "", ",", Properties["Name 3"] or "", ",", Properties["Name 4"] or "", ",", Properties["Name 5"] or "", "\n");
+	file:flush()
+	file:close()
+	OnTimerExpired()
+	setupLogTimer()
+end
+
+function setupLogTimer()
+	destroyLogTimer()
+
+	gLogTimer = C4:AddTimer(Properties["Interval"], "SECONDS", true);
+end
+
+function OnTimerExpired()
+	if Properties["File"] == "" then
+		return
+	end
+
+	local file = io.open(Properties["File"], "a+")
+	file:write(os.date(), ",", Variables["Var1"], ",", Variables["Var2"], ",", Variables["Var3"], ",", Variables["Var4"], ",", Variables["Var5"], "\n");
+	file:flush()
+	file:close()
+end
+
+function OnDriverInit()
+	setupLogTimer()
+end
+
+function OnDriverDestroyed()
+	destroyLogTimer()
+end
+
+function destroyLogTimer()
+	if gLogTimer then
+		C4:KillTimer(gLogTimer)
+		gLogTimer = nil
+	end
+end
+
+function ExecuteCommand(sCommand, tParams)
+	if sCommand == "LUA_ACTION" then
+		_G[tParams.ACTION]()
+	end
+end
+
+]]>
+    </script>
+	</config>
+	<connections/>
+	<capabilities/>
+</devicedata>

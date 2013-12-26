@@ -1,0 +1,854 @@
+<devicedata>
+  <copyright>Copyright 2004-2008 Control4 Corporation.  All rights reserved.</copyright>
+  <manufacturer>HitLighs</manufacturer>
+  <name>HitLights RGB Light Strip [IR]</name>
+  <model>RGB Light Strip</model>
+  <creator>Joel Connett</creator>
+  <version>4</version>
+  <created>Oct 14th 2013 11:42 PM</created>
+  <modified>Oct 15th 2013 12:22 AM</modified>
+  <small>devices_sm/dimmer.gif</small>
+  <large>devices_lg/dimmer.gif</large>
+  <composer_categories>
+    <category>Lighting</category>
+  </composer_categories>
+  <control>lua_gen</control>
+  <driver>DriverWorks</driver>
+  <proxy>light</proxy>
+  <states />
+  <conditionals />
+  <events/>
+  
+  <config>
+    <documentation></documentation>
+    <properties>
+      <!-- These are to allow you to emulate light level changes on the properties page... delete when you create your driver to an actual system...  -->
+      <property>
+        <name>Debug Mode</name>
+        <type>LIST</type>
+        <items>
+	  <item>Off</item>
+	  <item>Print</item>
+	  <item>Log</item>
+	  <item>Print and Log</item>
+        </items>
+        <default>Off</default>
+        <readonly>false</readonly>
+      </property>
+    </properties>
+    <actions/>
+    <commands/>
+    <script>
+      <![CDATA[
+
+CMDS = {}
+gLightLevel = 0
+
+function OnPropertyChanged(strProperty)
+  dbg("strProperty = "  .. strProperty .. " changed to: " .. Properties[strProperty])
+  
+end
+
+function startDebugTimer()
+  if (g_DebugTimer) then
+    g_DebugTimer = C4:KillTimer(g_DebugTimer)
+  end
+  g_DebugTimer = C4:AddTimer(15, "MINUTES")
+end
+
+function OnTimerExpired(idTimer)
+  if (idTimer == g_DebugTimer) then
+    dbg("Turning Debug Mode Off (timer expired)")
+    C4:UpdateProperty("Debug Mode", "Off")
+  end
+  C4:KillTimer(idTimer)
+end
+
+function dbg(...)
+  if (g_debugprint) then print(...) end
+  if (g_debuglog) then C4:ErrorLog(...) end
+end
+
+
+function ExecuteCommand(strCommand, tParams)
+dbg("ExecuteCommand function called with : " .. strCommand)
+
+  if CMD[strCommand] then
+    CMD[strCommand](tParams)
+  else
+    dbg("Unknown cmd: " , strCommand)
+  end
+end
+
+function ReceivedFromProxy(idBinding, strCommand, tParams)
+  print("Received from proxy:", strCommand)
+  local cmd = CMDS[strCommand]   
+  if (cmd ~= nil) then
+    --dbg( "Received from Proxy: " .. strCommand .. " on binding " .. idBinding .. "; Send to Device: " .. cmd)
+    cmd(tParams)
+  else
+    dbg("Unknown cmd in ReceivedFromProxy: ", strCommand)
+  end
+end
+
+function CMDS.ON()
+  CMDS.TOGGLE()
+end
+
+function CMDS.OFF()
+  CMDS.TOGGLE()
+end
+
+function CMDS.TOGGLE()
+  if gLightLevel == 100 then
+    gLightLevel = 0
+  else
+    gLightLevel = 100
+  end
+  C4:SendIR(1, 103)
+  CMDS.GET_LIGHT_LEVEL()
+end
+
+CMDS.TOGGLE_PRESET = CMDS.TOGGLE
+
+function CMDS.GET_CONNECTED_STATE(tParams)
+  C4:SendToProxy(5001, "ONLINE_CHANGED", "TRUE")
+end
+
+function CMDS.GET_LIGHT_LEVEL(tParams)
+  C4:SendToProxy(5001, "LIGHT_LEVEL_CHANGED", gLightLevel)
+end
+
+function CMDS.SET_LEVEL(tParams)
+  if tParams.LEVEL == 0 then
+    CMDS.OFF()
+    gLightLevel = 0
+  else
+    CMDS.ON()
+    gLightLevel = 100
+  end
+
+  CMDS.GET_LIGHT_LEVEL()
+end
+
+function CMDS.PULSE(tParams)
+end
+
+
+function CMDS.BrightnessDown(tParams)
+  C4:SendIR(1, 1001)
+end
+
+function CMDS.White(tParams)
+  C4:SendIR(1, 1041)
+end
+
+function CMDS.Flash(tParams)
+  C4:SendIR(1, 1040)
+end
+
+function CMDS.Fade3(tParams)
+  C4:SendIR(1, 1037)
+end
+
+
+function CMDS.Jump3(tParams)
+  C4:SendIR(1, 1035)
+end
+
+function CMDS.Jump7(tParams)
+  C4:SendIR(1, 1036)
+end
+
+function CMDS.DIY5(tParams)
+  C4:SendIR(1, 1033)
+end
+
+function CMDS.Color21(tParams)
+  C4:SendIR(1, 1009)
+end
+
+function CMDS.Color14(tParams)
+  C4:SendIR(1, 1008)
+end
+
+function CMDS.Color13(tParams)
+  C4:SendIR(1, 1007)
+end
+
+function CMDS.Auto(tParams)
+  C4:SendIR(1, 1039)
+end
+
+function CMDS.Fade7(tParams)
+  C4:SendIR(1, 1038)
+end
+
+function CMDS.Blue(tParams)
+  C4:SendIR(1, 1004)
+end
+
+function CMDS.Green(tParams)
+  C4:SendIR(1, 1003)
+end
+
+function CMDS.Red(tParams)
+  C4:SendIR(1, 1002)
+end
+
+function CMDS.Diy6(tParams)
+  C4:SendIR(1, 1034)
+end
+
+function CMDS.BrightnessUp(tParams)
+  C4:SendIR(1, 1000)
+end
+
+function CMDS.Diy4(tParams)
+  C4:SendIR(1, 1032)
+end
+
+function CMDS.Diy3(tParams)
+  C4:SendIR(1, 1031)
+end
+
+function CMDS.Diy2(tParams)
+  C4:SendIR(1, 1030)
+end
+
+function CMDS.Diy1(tParams)
+  C4:SendIR(1, 1029)
+end
+
+function CMDS.Slow(tParams)
+  C4:SendIR(1, 1028)
+end
+
+function CMDS.Quick(tParams)
+  C4:SendIR(1, 1027)
+end
+
+function CMDS.BlueDown(tParams)
+  C4:SendIR(1, 1026)
+end
+
+function CMDS.BlueUp(tParams)
+  C4:SendIR(1, 1025)
+end
+
+function CMDS.GreenDown(tParams)
+  C4:SendIR(1, 1024)
+end
+
+function CMDS.GreenUp(tParams)
+  C4:SendIR(1, 1023)
+end
+
+function CMDS.RedDown(tParams)
+  C4:SendIR(1, 1022)
+end
+
+function CMDS.RedUp(tParams)
+  C4:SendIR(1, 1021)
+end
+
+function CMDS.Color44(tParams)
+  C4:SendIR(1, 1020)
+end
+
+function CMDS.Color43(tParams)
+  C4:SendIR(1, 1019)
+end
+
+function CMDS.Color42(tParams)
+  C4:SendIR(1, 1018)
+end
+
+function CMDS.Color41(tParams)
+  C4:SendIR(1, 1017)
+end
+
+function CMDS.Color34(tParams)
+  C4:SendIR(1, 1016)
+end
+
+function CMDS.Color33(tParams)
+  C4:SendIR(1, 1015)
+end
+
+function CMDS.Color32(tParams)
+  C4:SendIR(1, 1014)
+end
+
+function CMDS.Color31(tParams)
+  C4:SendIR(1, 1013)
+end
+
+function CMDS.Color24(tParams)
+  C4:SendIR(1, 1012)
+end
+
+function CMDS.Color23(tParams)
+  C4:SendIR(1, 1011)
+end
+
+function CMDS.Color22(tParams)
+  C4:SendIR(1, 1010)
+end
+
+function CMDS.Color12(tParams)
+  C4:SendIR(1, 1006)
+end
+
+function CMDS.Color11(tParams)
+  C4:SendIR(1, 1005)
+end
+
+function CMDS.Play(tParams)
+  C4:SendIR(1, 1)
+end
+
+--[[
+functions NOT defined: PUSH_TOP_BUTTON, RELEASE_TOP_BUTTON, PUSH_BOTTOM_BUTTON, RELEASE_BOTTOM_BUTTON, PUSH_TOGGLE_BUTTON and others...
+
+lighting protocol commands:
+ON - None
+OFF - None
+SET_LEVEL - LEVEL : (INT)nLevel
+RAMP_TO_LEVEL- LEVEL : (INT)nLevel; TIME : (INT)nMilliseconds
+TOGGLE - None
+SET_ALL_LED - RGB : (HEX)colorRGB (not supported by DriverWorks???)
+SET_TOP_LED_ON - RGB : (HEX)colorRGB
+SET_TOP_LED_OFF - RGB : (HEX)colorRGB
+SET_BOTTOM_LED_ON - RGB : (HEX)colorRGB
+SET_BOTTOM_LED_OFF - RGB : (HEX)colorRGB
+PUSH_TOP_BUTTON - None
+RELEASE_TOP_BUTTON - None
+PUSH_BOTTOM_BUTTON - None
+RELEASE_BOTTOM_BUTTON - None
+PUSH_TOGGLE_BUTTON - None
+RELEASE_TOGGLE_BUTTON - None
+SET_CLICK_RAMP_RATE_UP - RATE : (INT)nRampRate
+SET_CLICK_RAMP_RATE_DOWN - RATE : (INT)nRampRate
+SET_PRESET_LEVEL - LEVEL : (INT)nLevel
+GET_PROPERTIES - None
+GET_CONNECTED_STATE - None
+GET_LIGHT_LEVEL - None
+
+lighting protocol Notifies:
+TOP_BUTTON_PUSH - None
+TOP_BUTTON_RELEASE - None
+BOTTOM_BUTTON_PUSH - None
+BOTTOM_BUTTON_RELEASE - None
+LIGHT_LEVEL_CHANGED - (STRING)
+PRESET_LEVEL_CHANGED - (STRING)
+CLICK_RAMP_RATE_UP - (STRING)
+CLICK_RAMP_RATE_DOWN - (STRING)
+ONLINE_CHANGED - True | False
+BUTTON_COLORS - colorRGB (not supported by DriverWorks???)
+--]]
+
+
+
+      ]]>
+    </script>
+     <irsection>
+      <ircodes>
+        <ircode verified="False" controlrating="0">
+          <id>1001</id>
+          <name>BRIGHTNESS DOWN</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>103</id>
+          <name>POWER TOGGLE</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>4</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1041</id>
+          <name>WHITE</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0016 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern>0000 006c 0000 0002 0158 0056 0016 0e42</altpattern>
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1040</id>
+          <name>FLASH</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1037</id>
+          <name>FADE3</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0040 0016 0041 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1036</id>
+          <name>JUMP7</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1035</id>
+          <name>JUMP3</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>4</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0016 0015 0016 0016 0041 0015 0016 0016 0016 0015 0017 0015 0016 0016 0016 0015 0041 0016 0041 0015 0016 0016 0041 0015 0041 0015 0041 0016 0041 0015 0041 0015 05ed 0155 0057 0015 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1033</id>
+          <name>DIY5</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1009</id>
+          <name>COLOR 21</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1008</id>
+          <name>COLOR 14</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1007</id>
+          <name>COLOR 13</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0016 0016 0040 0016 05ec 0155 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1039</id>
+          <name>AUTO</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1038</id>
+          <name>FADE7</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1004</id>
+          <name>BLUE</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1003</id>
+          <name>GREEN</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1002</id>
+          <name>RED</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1034</id>
+          <name>DIY6</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1000</id>
+          <name>BRIGHTNESS UP</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1032</id>
+          <name>DIY4</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1031</id>
+          <name>DIY3</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1030</id>
+          <name>DIY2</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1029</id>
+          <name>DIY1</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0016 0016 0040 0016 0041 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1028</id>
+          <name>SLOW</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0157 00ac 0015 0016 0016 0016 0015 0017 0015 0016 0016 0016 0015 0017 0015 0016 0016 0016 0015 0041 0016 0041 0015 0041 0015 0041 0016 0041 0015 0041 0015 0041 0016 0041 0015 0041 0015 0041 0016 0016 0015 0017 0015 0041 0015 0017 0015 0016 0016 0016 0015 0017 0015 0016 0016 0041 0015 0041 0015 0017 0015 0041 0015 0041 0016 0041 0015 05ed 0155 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1027</id>
+          <name>QUICK</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1026</id>
+          <name>BLUE DOWN</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1025</id>
+          <name>BLUE UP</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1024</id>
+          <name>GREEN DOWN</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1023</id>
+          <name>GREEN UP</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0041 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1022</id>
+          <name>RED DOWN</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0040 0016 0041 0016 0040 0016 05ec 0156 0056 0015 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1021</id>
+          <name>RED UP</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0157 00ac 0015 0016 0016 0016 0015 0017 0015 0016 0016 0016 0015 0017 0015 0016 0016 0016 0015 0041 0016 0041 0015 0041 0015 0041 0016 0041 0015 0041 0015 0041 0016 0041 0015 0016 0016 0016 0015 0041 0016 0016 0015 0041 0016 0016 0015 0017 0015 0016 0016 0041 0015 0041 0015 0017 0015 0041 0015 0017 0015 0041 0015 0041 0016 0041 0015 05ed 0155 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1020</id>
+          <name>COLOR 44</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0040 0016 0041 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1019</id>
+          <name>COLOR 43</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0040 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1018</id>
+          <name>COLOR 42</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1017</id>
+          <name>COLOR 41</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0015 0017 0015 0016 0016 0016 0015 0017 0015 0016 0016 0016 0015 0017 0015 0041 0015 0041 0016 0041 0015 0041 0015 0041 0016 0041 0015 0041 0015 0041 0016 0016 0015 0017 0015 0016 0016 0041 0015 0041 0015 0017 0015 0016 0016 0016 0015 0041 0016 0041 0015 0041 0015 0017 0015 0016 0016 0041 0015 0041 0015 0041 0016 05ec 0156 0056 0015 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1016</id>
+          <name>COLOR 34</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1015</id>
+          <name>COLOR 33</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0015 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0016 0015 0016 0016 0041 0015 0041 0016 0040 0016 0041 0015 0041 0016 0040 0016 0040 0016 0041 0016 0016 0015 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0016 0015 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1014</id>
+          <name>COLOR 32</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0040 0016 0041 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 05ec 0156 0055 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1013</id>
+          <name>COLOR 31</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1012</id>
+          <name>COLOR 24</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1011</id>
+          <name>COLOR 23</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0040 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1010</id>
+          <name>COLOR 22</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0041 0016 0015 0016 0041 0016 0015 0016 0016 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1006</id>
+          <name>COLOR 12</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0015 0016 0041 0016 0015 0016 0041 0016 0015 0016 0041 0016 0015 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1005</id>
+          <name>COLOR 11</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e42</pattern>
+          <altpattern />
+        </ircode>
+        <ircode verified="False" controlrating="0">
+          <id>1</id>
+          <name>Play</name>
+          <transmit>PULSE</transmit>
+          <repeatcount>5</repeatcount>
+          <delayafter>0</delayafter>
+          <pattern>0000 006c 0022 0002 0158 00ab 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0040 0016 0016 0016 0016 0016 0015 0016 0016 0016 0016 0016 0040 0016 0016 0016 0015 0016 0041 0016 0040 0016 0040 0016 0041 0016 0040 0016 0016 0016 0040 0016 05ec 0156 0056 0016 0e43</pattern>
+          <altpattern />
+        </ircode>
+      </ircodes>
+      <ircodemacros />
+    </irsection>
+  </config>
+
+  <capabilities>
+    <on_off>True</on_off>
+    <set_level>False</set_level>
+    <ramp_level>False</ramp_level>
+    <has_single_led>False</has_single_led>
+    <has_double_led>False</has_double_led>
+    <can_detach_buttons>False</can_detach_buttons>
+    <can_detach_led>False</can_detach_led>
+    <has_press_events>True</has_press_events>
+    <has_release_events>False</has_release_events>
+    <single_button>True</single_button>
+    <double_button>False</double_button>
+    <do_push>False</do_push>
+    <do_release>False</do_release>
+    <hitlight_strip_light>True</hitlight_strip_light>
+  </capabilities>
+
+  <connections>
+    <connection>
+      <id>1</id>
+      <facing>6</facing>
+      <connectionname>IR Sensor</connectionname>
+      <type>1</type>
+      <consumer>True</consumer>
+      <audiosource>False</audiosource>
+      <videosource>False</videosource>
+      <linelevel>True</linelevel>
+      <classes>
+        <class>
+          <classname>IR_OUT</classname>
+        </class>
+      </classes>
+    </connection>
+    <connection>
+      <id>300</id>
+      <facing>6</facing>
+      <connectionname>Top Button Link</connectionname>
+      <type>1</type>
+      <consumer>False</consumer>
+      <audiosource>False</audiosource>
+      <videosource>False</videosource>
+      <linelevel>True</linelevel>
+      <classes>
+        <class>
+        <classname>BUTTON_LINK</classname>
+        </class>
+      </classes>
+    </connection>
+    <connection>
+      <id>301</id>
+      <facing>6</facing>
+      <connectionname>Bottom Button Link</connectionname>
+      <type>1</type>
+      <consumer>False</consumer>
+      <audiosource>False</audiosource>
+      <videosource>False</videosource>
+      <linelevel>True</linelevel>
+      <classes>
+        <class>
+        <classname>BUTTON_LINK</classname>
+        </class>
+      </classes>
+    </connection>
+    <connection>
+      <id>302</id>
+      <facing>6</facing>
+      <connectionname>Toggle Button Link</connectionname>
+      <type>1</type>
+      <consumer>False</consumer>
+      <audiosource>False</audiosource>
+      <videosource>False</videosource>
+      <linelevel>True</linelevel>
+      <classes>
+        <class>
+        <classname>BUTTON_LINK</classname>
+        </class>
+      </classes>
+    </connection>
+    <connection>
+      <id>5001</id>
+      <facing>6</facing>
+      <connectionname>Light 1</connectionname>
+      <type>2</type>
+      <consumer>False</consumer>
+      <audiosource>False</audiosource>
+      <videosource>False</videosource>
+      <linelevel>False</linelevel>
+      <classes>
+        <class>
+          <!-- <autobind>False</autobind> -->
+          <classname>LIGHT</classname>
+        </class>
+      </classes>
+      <hidden>False</hidden>
+    </connection>
+    </connections>
+</devicedata>

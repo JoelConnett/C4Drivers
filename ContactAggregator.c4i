@@ -1,0 +1,187 @@
+<devicedata>
+	<copyright>Copyright 2012 Joel Connett.  All rights reserved.</copyright>
+	<manufacturer>Joel Connett</manufacturer>
+	<creator>Joel Connett</creator>
+	
+	<created>3/23/2012 12:21:54 PM</created>
+	<modified>3/23/2012 12:21:54 PM</modified>
+	
+	<version>1</version>
+	<name>Contact Aggregator v1.0</name>
+	<model>Contact Aggregator v1.0</model>
+	
+	<small>devices_sm/c4.gif</small>
+	<large>devices_lg/c4.gif</large>
+	<control>lua_gen</control>
+	<driver>DriverWorks</driver>
+	<proxy>ContactAggregator</proxy>
+	<combo/>
+	<events>
+		<event>
+			<id>1</id>
+			<name>STATE_CHANGED</name>
+			<description>NAME's state changed</description>
+		</event>
+	</events>
+	<config>
+		<documentation/>
+		<properties>
+			<property>
+				<name>Contacts</name>
+				<type>DEVICE_SELECTOR</type>
+				<items>
+					<item>contactsingle_carbonmonoxidedetector_c4.c4i</item>
+					<item>contactsingle_contactswitch_c4.c4i</item>
+					<item>contactsingle_doorbell_c4.c4i</item>
+					<item>contactsingle_doorcontactsensor_c4.c4i</item>
+					<item>contactsingle_drivewaysensor_c4.c4i</item>
+					<item>contactsingle_glassbreakdetector_c4.c4i</item>
+					<item>contactsingle_heatdetector_c4.c4i</item>
+					<item>contactsingle_humiditysensor_c4.c4i</item>
+					<item>contactsingle_irbeam_c4.c4i</item>
+					<item>contactsingle_motionsensor_c4.c4i</item>
+					<item>contactsingle_pressuresensor_c4.c4i</item>
+					<item>contactsingle_smokedetector_c4.c4i</item>
+					<item>contactsingle_watersensor_c4.c4i</item>
+					<item>contactsingle_windowcontactsensor_c4.c4i</item>
+					<item>relaycontact_garagedoor_c4.c4i</item>
+					<item>ContactAggregator.c4i</item>
+				</items>
+				<multiselect>true</multiselect>
+			</property>
+			<property>
+				<name>Contact State</name>
+				<type>STRING</type>
+				<default/>
+				<readonly>true</readonly>
+			</property>
+			<property>
+				<name>Debug</name>
+				<type>LIST</type>
+				<items>
+				  <item>Off</item>
+				  <item>Print</item>
+				  <item>Log</item>
+				  <item>Print and Log</item>
+				</items>
+				<default>Off</default>
+				<readonly>false</readonly>
+			</property>
+		</properties>
+		<actions/>
+		<commands/>
+		<script>
+<![CDATA[
+
+States = {
+	Opened = 0,
+	Closed = 1
+}
+
+Devices = {}
+
+g_StateVarName = "ContactState"
+g_curState = States["Closed"]
+C4:AddVariable(g_StateVarName, g_curState, "STRING", true);
+
+function split(str, delim, maxNb)
+    -- Eliminate bad cases...
+    if string.find(str, delim) == nil then
+        return { str }
+    end
+    if maxNb == nil or maxNb < 1 then
+        maxNb = 0    -- No limit
+    end
+    local result = {}
+    local pat = "(.-)" .. delim .. "()"
+    local nb = 0
+    local lastPos
+    for part, pos in string.gfind(str, pat) do
+        nb = nb + 1
+        result[nb] = part
+        lastPos = pos
+        if nb == maxNb then break end
+    end
+    -- Handle the last field
+    if nb ~= maxNb then
+        result[nb + 1] = string.sub(str, lastPos)
+    end
+    return result
+end
+
+function log(message)
+	local val = Properties["Debug"] 
+	if  val == "Print" then
+		print(message)
+	elseif val == "Log" then
+		C4:DebugLog(message)
+	elseif val == "Log and Print" then
+		print(message)
+		C4:DebugLog(message)
+	end
+end
+
+
+
+function OnPropertyChanged(strProperty)
+	if(strProperty == "Contacts")
+	then
+		Devices = {}
+		initializeContacts()
+	end
+end
+
+function initializeContacts()
+	log("Initialize Contacts")
+	for i,id in ipairs(split(Properties["Contacts"], ","))
+	do
+		Devices[id] = 1
+		C4:RegisterVariableListener(id, 1000)
+	end
+end
+
+function OnWatchedVariableChanged(idDevice, idVariable, strValue)
+	log("Variable changed...")
+	log(" device: " .. idDevice)
+	log(" variable: " .. idVariable)
+	log(" value: " .. strValue)
+	log("-----------")
+	Devices[idDevice] = strValue
+	update()
+end
+
+function update()
+	log("Cur state: " .. g_curState)
+	local newState = States["Closed"]
+	log(table.getn(Devices))
+	for id,val in pairs(Devices)
+	do
+		-- Check for open contacts
+		if(val == "0")
+		then
+			newState = States["Opened"]
+		end
+	end
+	
+	log("New state: " .. newState)
+
+	if(newState ~= g_curState)
+	then
+		setState(newState)
+	end
+end
+
+function setState(newState)
+	log("Setting state to: " .. newState)
+	g_curState = newState
+	C4:SetVariable(g_StateVarName, g_curState)
+	C4:FireEvent("STATE_CHANGED")
+	C4:UpdateProperty("Contact State", newState)
+end
+
+]]>
+    </script>
+	</config>
+	<connections/>
+	<capabilities/>
+</devicedata>
